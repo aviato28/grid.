@@ -1,17 +1,21 @@
 name: Android
 
+# Releases: every push to main publishes the version at the top of CHANGELOG.md
+# (if that version has no release yet). Pushing a v* tag also works.
+
 on:
   push:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') && github.ref != 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,34 +27,55 @@ jobs:
       - run: ./gradlew assembleDebug testDebugUnitTest --stacktrace
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(grep -m1 -oP '^## \K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md)
+          fi
+          [ -n "$VERSION" ] || { echo "::error::No version found"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists, nothing to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-java@v4
+        if: steps.ver.outputs.skip != 'true'
         with:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.ver.outputs.skip != 'true'
 
       - name: Decode keystore
+        if: steps.ver.outputs.skip != 'true'
         run: |
           if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then echo "::error::Signing secrets missing. Add them in repo Settings > Secrets > Actions"; exit 1; fi
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/grid-release.jks"
 
       - name: Test and build signed release
+        if: steps.ver.outputs.skip != 'true'
         env:
           GRID_KEYSTORE_PATH: ${{ runner.temp }}/grid-release.jks
           GRID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           GRID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           GRID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           ./gradlew testDebugUnitTest assembleRelease -PversionName="$VERSION" --stacktrace
           cp app/build/outputs/apk/release/app-release.apk "grid-$VERSION.apk"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Extract release notes
+        if: steps.ver.outputs.skip != 'true'
         run: |
           awk -v v="$VERSION" '
             /^## / { if (found) exit; if ($2 == v) { found=1; next } }
@@ -59,8 +84,7 @@ jobs:
           if [ -z "$(tr -d '[:space:]' < notes.md)" ]; then rm notes.md; fi
 
       - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
+        if: steps.ver.outputs.skip != 'true'
         run: |
           if [ -f notes.md ]; then NOTES=(--notes-file notes.md); else NOTES=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" "grid-$VERSION.apk" --title "Grid. $VERSION" "${NOTES[@]}"
+          gh release create "v$VERSION" "grid-$VERSION.apk" --target "$GITHUB_SHA" --title "Grid. $VERSION" "${NOTES[@]}"
