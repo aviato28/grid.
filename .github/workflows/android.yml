@@ -35,6 +35,7 @@ jobs:
 
       - name: Decode keystore
         run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then echo "::error::Signing secrets missing. Add them in repo Settings > Secrets > Actions"; exit 1; fi
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/grid-release.jks"
 
       - name: Test and build signed release
