@@ -2,6 +2,11 @@
 
 Turn phone photos into printable instant-film style cards, laid out on an A4 sheet, exported as a PDF for any print shop.
 
+## Working agreement
+- **Build only when the owner explicitly asks.** Between builds we only discuss and grow the backlog below.
+- When asked to build, the whole "Next build" backlog ships as one batch → one release.
+- Opus plans/reviews; Sonnet/Haiku build. Merging to `main` auto-releases the top CHANGELOG version.
+
 ## Decisions
 
 | Area | Decision |
@@ -9,10 +14,10 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 | Platform | Android only, **minSdk 30 (Android 11)** |
 | Package | `com.nbansal.grid` · display name **Grid.** |
 | Stack | Kotlin + Jetpack Compose, `android.graphics.pdf.PdfDocument`, Photo Picker (no storage permissions) |
-| Builds | GitHub Actions → signed APK → GitHub Releases (repo is public). No local builds required. |
-| Updates | In-app updater reads the latest GitHub release, downloads the APK, hands it to the system installer. One stable signing key, stored as a GitHub secret, backed up offline. |
-| Captions | Per photo, optional, with an "apply to all" shortcut |
-| Aesthetic | **Stationery (light) + Darkroom (dark)**, following system theme. See below. |
+| Builds | GitHub Actions → signed APK → GitHub Releases (public repo). Merge to `main` = release. |
+| Updates | In-app updater reads the latest GitHub release, downloads the APK, hands it to the system installer. One stable signing key (GitHub secrets, owner keeps backup). |
+| Captions | Per photo, optional, with "apply to all" |
+| Aesthetic | **Stationery (light) + Darkroom (dark)**, following system theme |
 
 ## Design system
 
@@ -27,43 +32,44 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 
 - Type: Space Grotesk (UI), JetBrains Mono (labels, sizes, versions), Caveat (captions on cards only).
 - Accent used sparingly: the "." in the wordmark, primary button, progress, selection.
-- Corners 6dp, sheets 14dp top corners, thin line dividers, no gradients.
 
 ## Print spec
+- Pages true-to-size, images ≥300 DPI, 5 mm safe margin, crop marks, 10 mm calibration ruler.
+- Mini card 54 × 86 mm, photo window 46 × 62 mm, footer strip 46 × 18 mm → 9 per A4 (3×3).
 
-- Pages true-to-size, images embedded at ≥300 DPI.
-- 5 mm safe margin; optional thin cut marks.
-- 10 mm calibration ruler + "print at 100% / actual size" reminder.
-- MVP template: **Mini** card 54 × 86 mm → 9 per A4 (3×3).
+## Shipped
+- **v0.1.0** — scaffold, themes, CI releases, in-app updater
+- **v0.2.0** — photo picker, Mini cards, pan/zoom, captions, A4 preview, PDF export (share/save), app icon
 
-## Phase 0 — Foundation
-- [ ] Compose project scaffold, theme tokens
-- [ ] GitHub Actions: build, sign, release on tag
-- [ ] In-app updater (check → download → install)
-- [ ] Versioning + changelog convention
+## Next build — backlog (not started)
 
-## Phase 1 — MVP
-- [ ] Pick photos (Photo Picker)
-- [ ] Mini template
-- [ ] Auto-crop with pan/zoom adjust per photo
-- [ ] Per-photo captions
-- [ ] Live A4 preview, auto-paginate past 9 photos
-- [ ] Export PDF → share / save
+### Bugs (from device testing)
+- [ ] Caption glyphs overlap/clip on the card ("COCKpit"). Cause: text drawn at tiny mm size on a scaled canvas. Fix: draw text in magnified space (×100), subpixel + linear text. Applies to preview and PDF.
+- [ ] Dark mode: Edit Photo top-bar title and back arrow are near-black on dark background. Audit all hardcoded colours.
+- [ ] System back on Edit Photo discards edits → should save.
+- [ ] Pinch-zoom anchors on card centre → should anchor on the pinch point.
 
-## Phase 2 — Variety
-- [ ] Templates: Classic (88×107, 4/sheet), Square, Photo strip
-- [ ] Date stamp (from photo date), caption fonts
-- [ ] Paper sizes: A4, Letter, A3, 4×6
-- [ ] Toggles: cut marks, border width/colour
-- [ ] Light filters: B&W, warm, faded
+### Caption studio (customisable footer strip)
+- [ ] Fonts (files already in repo): Handwritten (Caveat), Script (Homemade Apple), Pencil (Reenie Beanie), Marker (Permanent Marker), Typewriter (Special Elite), Serif (DM Serif Italic), Mono (Space Mono), Clean (Space Grotesk). Font chips rendered in their own font.
+- [ ] Text size S/M/L, alignment, text colour presets (Ink, Pen blue, Red, Pencil, White); auto-contrast on dark frames.
+- [ ] Frame colour presets: White, Cream, Black, Blush, Sage, Sky.
+- [ ] Date per photo: auto from EXIF, editable, clearable; formats `15 Nov 2026`, `15.11.26`, `NOV 2026`, `Sunday, 15 Nov`.
+- [ ] Location per photo: free text; best-effort prefill from EXIF GPS (Photo Picker often strips it).
+- [ ] Footer layouts: Caption only · Caption + date · Caption left / date right · Caption + date · location · Date only · Location only · Blank.
+- [ ] Film stamp: orange digital date (`'26 11 15`) inside the photo, bottom-right.
+- [ ] Sheet-wide **Style** sheet + per-photo "Only this photo" override.
 
-## Phase 3 — Polish
-- [ ] Saved projects / drafts
-- [ ] Drag to reorder
-- [ ] Mixed-size sheets (auto-pack)
-- [ ] Extra frames: film strip, postage stamp, ticket stub, wallet/passport
+### Housekeeping
+- [ ] Enable R8 shrinking (APK ~21 MB → a few MB); verify updater/org.json survive.
+
+## Later (ideas, unprioritised)
+- Templates: Classic (88×107, 4/sheet), Square, Photo strip, wallet/passport
+- Paper sizes: Letter, A3, 4×6
+- Light filters: B&W, warm, faded
+- Saved projects / drafts, drag to reorder, mixed-size sheets
+- Extra frames: film strip, postage stamp, ticket stub
 
 ## Team
 - **Opus** — architecture, task specs, reviews, decisions
-- **Sonnet** — Gradle/CI/signing, updater, layout + PDF engine, screens
-- **Haiku** — tokens, strings, icons, docs, layout-math tests, small fixes
+- **Sonnet** — complex features (renderer, PDF, updater, screens)
+- **Haiku** — small/mechanical tasks (tokens, strings, docs, simple fixes)
