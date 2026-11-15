@@ -12,7 +12,22 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 | Builds | GitHub Actions → signed APK → GitHub Releases (repo is public). No local builds required. |
 | Updates | In-app updater reads the latest GitHub release, downloads the APK, hands it to the system installer. One stable signing key, stored as a GitHub secret, backed up offline. |
 | Captions | Per photo, optional, with an "apply to all" shortcut |
-| Aesthetic | TBD — choosing from mockup variants |
+| Aesthetic | **Stationery (light) + Darkroom (dark)**, following system theme. See below. |
+
+## Design system
+
+| Token | Light · Stationery | Dark · Darkroom |
+|---|---|---|
+| background | `#F4F1EA` (faint 8dp grid) | `#161514` |
+| surface | `#FFFFFF` | `#22201E` |
+| onBackground | `#141414` | `#EDE8E0` |
+| muted | `#6D685D` | `#8D867B` |
+| line | `#141414` @ 18% | `#3A3632` |
+| accent | `#FF5A1F` date-stamp orange | `#E5483B` safelight red |
+
+- Type: Space Grotesk (UI), JetBrains Mono (labels, sizes, versions), Caveat (captions on cards only).
+- Accent used sparingly: the "." in the wordmark, primary button, progress, selection.
+- Corners 6dp, sheets 14dp top corners, thin line dividers, no gradients.
 
 ## Print spec
 
