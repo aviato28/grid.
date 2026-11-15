@@ -2,7 +2,7 @@
 ## Releasing
 
 1. Add a `## X.Y.Z` section to `CHANGELOG.md` (its bullets become the release notes and the in-app update sheet).
-2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`
+2. Merge to `main`. CI publishes that version automatically (once per version). Pushing a `vX.Y.Z` tag also works.
 
 GitHub Actions builds the APK, signs it with the key stored in repo secrets (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`), and publishes it as `grid-<version>.apk` on a GitHub Release.
 Version codes are `major*10000 + minor*100 + patch`, so tags must be `vMAJOR.MINOR.PATCH`.
