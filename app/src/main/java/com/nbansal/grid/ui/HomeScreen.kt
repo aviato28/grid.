@@ -30,7 +30,7 @@ import com.nbansal.grid.ui.theme.MonoLabel
 import com.nbansal.grid.ui.theme.SpaceGrotesk
 
 @Composable
-fun HomeScreen(checking: Boolean, onCheckForUpdates: () -> Unit) {
+fun HomeScreen(checking: Boolean, onNewSheet: () -> Unit, onCheckForUpdates: () -> Unit) {
     val colors = GridTheme.colors
     Column(
         Modifier
@@ -49,15 +49,12 @@ fun HomeScreen(checking: Boolean, onCheckForUpdates: () -> Unit) {
         )
         Spacer(Modifier.height(24.dp))
         Button(
-            onClick = {},
-            enabled = false,
+            onClick = onNewSheet,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = MaterialTheme.shapes.small,
             colors = ButtonDefaults.buttonColors(
                 containerColor = colors.accent,
                 contentColor = androidx.compose.ui.graphics.Color.White,
-                disabledContainerColor = colors.accent,
-                disabledContentColor = androidx.compose.ui.graphics.Color.White,
             ),
         ) { Text("New sheet", fontWeight = FontWeight.Medium) }
 
