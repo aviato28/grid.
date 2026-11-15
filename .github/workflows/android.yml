@@ -1,0 +1,66 @@
+name: Android
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew assembleDebug testDebugUnitTest --stacktrace
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode keystore
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then echo "::error::Signing secrets missing. Add them in repo Settings > Secrets > Actions"; exit 1; fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/grid-release.jks"
+
+      - name: Test and build signed release
+        env:
+          GRID_KEYSTORE_PATH: ${{ runner.temp }}/grid-release.jks
+          GRID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          GRID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          GRID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ./gradlew testDebugUnitTest assembleRelease -PversionName="$VERSION" --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk "grid-$VERSION.apk"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Extract release notes
+        run: |
+          awk -v v="$VERSION" '
+            /^## / { if (found) exit; if ($2 == v) { found=1; next } }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ -z "$(tr -d '[:space:]' < notes.md)" ]; then rm notes.md; fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f notes.md ]; then NOTES=(--notes-file notes.md); else NOTES=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" "grid-$VERSION.apk" --title "Grid. $VERSION" "${NOTES[@]}"
