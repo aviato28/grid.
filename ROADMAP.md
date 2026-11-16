@@ -59,15 +59,26 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 - [ ] Film stamp: orange digital date (`'26 11 15`) inside the photo, bottom-right.
 - [ ] Sheet-wide **Style** sheet + per-photo "Only this photo" override.
 
+### Film filters — *in discussion*
+- [ ] Film-inspired looks (Kodak/Fuji/Polaroid-style), intensity slider, grain/vignette/halation. Final list TBD.
+
+### More card shapes & novelty frames — *in discussion*
+- [ ] Additional instant/print sizes (list TBD)
+- [ ] Novelty: film strip, postage stamp, ticket stub (+ others TBD)
+
+### Sheets & projects
+- [ ] Mixed-size sheets: different card shapes auto-packed on one A4
+- [ ] Saved drafts (projects survive app restarts)
+- [ ] Drag to reorder
+
 ### Housekeeping
 - [ ] Enable R8 shrinking (APK ~21 MB → a few MB); verify updater/org.json survive.
 
+### Before building
+- [ ] One quick static mock-up of the new screens → owner approval
+
 ## Later (ideas, unprioritised)
-- Templates: Classic (88×107, 4/sheet), Square, Photo strip, wallet/passport
-- Paper sizes: Letter, A3, 4×6
-- Light filters: B&W, warm, faded
-- Saved projects / drafts, drag to reorder, mixed-size sheets
-- Extra frames: film strip, postage stamp, ticket stub
+- Paper sizes: Letter, A3, 4×6 (A4 only for now)
 
 ## Team
 - **Opus** — architecture, task specs, reviews, decisions
