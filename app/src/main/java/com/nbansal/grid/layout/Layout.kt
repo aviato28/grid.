@@ -52,9 +52,9 @@ data class CardTemplate(
     val captionMax: Int = 28,
     val labelHint: String? = null,
     val windowCornerMm: Float = 0f,
-    /** Frame colour used while the sheet frame is still the default white; null = keep white. */
+    /** Frame colour used when the style frame is "Auto"; null = white. */
     val defaultFrameArgb: Int? = null,
-    /** Font used while the sheet font is still the default. */
+    /** Font used when the style font is "Auto"; null = Handwritten. */
     val defaultFont: com.nbansal.grid.sheet.CaptionFont? = null,
     val rotatable: Boolean = true,
 ) {

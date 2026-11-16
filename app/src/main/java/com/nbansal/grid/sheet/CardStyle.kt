@@ -1,5 +1,11 @@
 package com.nbansal.grid.sheet
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -53,17 +59,26 @@ enum class DateFormat(val label: String, private val pattern: String) {
     }
 }
 
-/** Sheet-level default; a photo may override it entirely via [Card.styleOverride]. */
+/** ISO-8601 (`2026-11-15`) string form of a [LocalDate], for JSON. */
+object LocalDateSerializer : KSerializer<LocalDate> {
+    override val descriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): LocalDate = LocalDate.parse(decoder.decodeString())
+}
+
+/**
+ * Sheet-level default; a photo may override it entirely via [Card.styleOverride].
+ * A null [font] / [frameColor] means "Auto": the card shape's own default (see [resolveStyle]).
+ */
+@Serializable
 data class CardStyle(
-    val font: CaptionFont = CaptionFont.Handwritten,
+    val font: CaptionFont? = null,
     val textSize: TextSize = TextSize.M,
     val textColor: TextColor = TextColor.Ink,
-    val frameColor: FrameColor = FrameColor.White,
+    val frameColor: FrameColor? = null,
     val layout: FooterLayout = FooterLayout.CaptionOnly,
     val align: Align = Align.Center,
     val dateFormat: DateFormat = DateFormat.DayMonthYear,
-    /** Stage C: film filter id. */
-    val filter: String? = null,
 )
 
 const val FILM_STAMP_ARGB = 0xFFFF7A1A.toInt()
@@ -83,7 +98,7 @@ fun luminance(argb: Int): Float {
 fun isDarkColor(argb: Int) = luminance(argb) < 0.18f
 
 /** Dark frame + Ink text renders White; light frame + White text renders Ink. */
-fun effectiveTextColor(style: CardStyle, frameArgb: Int = style.frameColor.argb): Int {
+fun effectiveTextColor(style: CardStyle, frameArgb: Int = (style.frameColor ?: FrameColor.White).argb): Int {
     val dark = isDarkColor(frameArgb)
     return when {
         dark && style.textColor == TextColor.Ink -> TextColor.White.argb

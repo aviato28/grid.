@@ -65,7 +65,7 @@ fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun Chip(selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+fun Chip(selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val colors = GridTheme.colors
     Box(
         Modifier
@@ -77,7 +77,7 @@ private fun Chip(selected: Boolean, onClick: () -> Unit, content: @Composable ()
 }
 
 @Composable
-private fun Dot(argb: Int, selected: Boolean, label: String, onClick: () -> Unit) {
+fun Dot(argb: Int, selected: Boolean, label: String, onClick: () -> Unit) {
     val colors = GridTheme.colors
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(52.dp)) {
         Box(
@@ -90,6 +90,22 @@ private fun Dot(argb: Int, selected: Boolean, label: String, onClick: () -> Unit
                 .clickable(onClick = onClick),
         )
         Text(label, style = MonoLabel.copy(fontSize = 9.sp), color = colors.muted, maxLines = 1, textAlign = TextAlign.Center)
+    }
+}
+
+/** "Auto (shape default)" swatch: a ringed "A" instead of a colour. */
+@Composable
+private fun AutoDot(selected: Boolean, onClick: () -> Unit) {
+    val colors = GridTheme.colors
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(52.dp)) {
+        Box(
+            Modifier
+                .size(34.dp)
+                .border(if (selected) 2.dp else 1.dp, if (selected) colors.accent else colors.line, CircleShape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) { Text("A", style = MonoLabel, color = colors.muted) }
+        Text("Auto", style = MonoLabel.copy(fontSize = 9.sp), color = colors.muted, maxLines = 1, textAlign = TextAlign.Center)
     }
 }
 
@@ -135,6 +151,7 @@ private fun LayoutThumb(layout: FooterLayout, selected: Boolean, onClick: () -> 
 fun StyleControls(style: CardStyle, onChange: (CardStyle) -> Unit) {
     SectionLabel("Font")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(style.font == null, { onChange(style.copy(font = null)) }) { Text("Auto", style = MonoLabel) }
         for (f in CaptionFont.entries) {
             Chip(style.font == f, { onChange(style.copy(font = f)) }) {
                 Text(f.label, style = TextStyle(fontFamily = fontFamilyFor(f), fontSize = 18.sp), color = MaterialTheme.colorScheme.onSurface)
@@ -153,6 +170,7 @@ fun StyleControls(style: CardStyle, onChange: (CardStyle) -> Unit) {
     }
     SectionLabel("Frame colour")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        AutoDot(style.frameColor == null) { onChange(style.copy(frameColor = null)) }
         for (c in FrameColor.entries) Dot(c.argb, style.frameColor == c, c.label) { onChange(style.copy(frameColor = c)) }
     }
     SectionLabel("Layout")

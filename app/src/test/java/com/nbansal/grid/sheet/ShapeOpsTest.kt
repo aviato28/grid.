@@ -71,7 +71,9 @@ class ShapeOpsTest {
         val stamp = Card(1, "stamp")
         assertEquals(0xFFF4EBDD.toInt(), stamp.resolveStyle(CardStyle()).frameArgb)
         assertEquals(FrameColor.Sage.argb, stamp.resolveStyle(CardStyle(frameColor = FrameColor.Sage)).frameArgb)
-        assertEquals(CaptionFont.Serif, Card(2, "bookmark").resolveStyle(CardStyle()).style.font)
-        assertEquals(CaptionFont.Mono, Card(2, "bookmark").resolveStyle(CardStyle(font = CaptionFont.Mono)).style.font)
+        assertEquals(CaptionFont.Serif, Card(2, "bookmark").resolveStyle(CardStyle()).font)
+        assertEquals(CaptionFont.Handwritten, Card(2, "bookmark").resolveStyle(CardStyle(font = CaptionFont.Handwritten)).font)
+        assertEquals(0xFFFFFFFF.toInt(), stamp.resolveStyle(CardStyle(frameColor = FrameColor.White)).frameArgb)
+        assertEquals(CaptionFont.Mono, Card(2, "bookmark").resolveStyle(CardStyle(font = CaptionFont.Mono)).font)
     }
 }
