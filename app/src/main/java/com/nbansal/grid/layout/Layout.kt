@@ -16,24 +16,44 @@ data class RectMm(val left: Float, val top: Float, val right: Float, val bottom:
     fun contains(x: Float, y: Float) = x >= left && x <= right && y >= top && y <= bottom
 }
 
-/** A card with a photo window; positions are relative to the card's top-left. */
-data class CardTemplate(
-    val name: String,
-    val cardWidthMm: Float,
-    val cardHeightMm: Float,
-    val windowLeftMm: Float,
-    val windowTopMm: Float,
-    val windowWidthMm: Float,
-    val windowHeightMm: Float,
-) {
-    val windowBottomMm get() = windowTopMm + windowHeightMm
+enum class CardGroup { Instant, Prints, Novelty, Extras }
 
-    /** Caption area: below the window, inside the card. */
-    val captionTopMm get() = windowBottomMm
-    val captionHeightMm get() = cardHeightMm - windowBottomMm
+/** Extra artwork drawn around a card. Stage B adds FilmStrip, Stamp, Ticket, Postcard, Bookmark, TradingCard, SlideMount, ContactSheet. */
+enum class Decoration { Plain }
+
+data class SizeMm(val width: Float, val height: Float)
+
+/** A card shape as data. All rects are relative to the card's top-left, in mm. */
+data class CardTemplate(
+    val id: String,
+    val displayName: String,
+    val group: CardGroup,
+    val sizeMm: SizeMm,
+    val photoWindows: List<RectMm>,
+    /** Strip below/around the photos that carries caption/date/location text; null if the shape has none. */
+    val footer: RectMm?,
+    val decoration: Decoration = Decoration.Plain,
+) {
+    val cardWidthMm get() = sizeMm.width
+    val cardHeightMm get() = sizeMm.height
+
+    /** The first (for now only) photo window. */
+    val window get() = photoWindows.first()
 
     companion object {
-        val Mini = CardTemplate("Mini", 54f, 86f, 4f, 6f, 46f, 62f)
+        val Mini = CardTemplate(
+            id = "mini",
+            displayName = "Mini",
+            group = CardGroup.Instant,
+            sizeMm = SizeMm(54f, 86f),
+            photoWindows = listOf(RectMm(4f, 6f, 50f, 68f)),
+            footer = RectMm(4f, 68f, 50f, 86f),
+        )
+
+        /** Registry; Stage B appends the other shapes here. */
+        val All: List<CardTemplate> = listOf(Mini)
+
+        fun byId(id: String): CardTemplate = All.firstOrNull { it.id == id } ?: Mini
     }
 }
 

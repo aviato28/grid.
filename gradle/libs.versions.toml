@@ -8,6 +8,7 @@ coreKtx = "1.17.0"
 junit = "4.13.2"
 coroutines = "1.10.2"
 navigationCompose = "2.9.4"
+exifinterface = "1.4.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -20,6 +21,7 @@ androidx-compose-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit" }
 

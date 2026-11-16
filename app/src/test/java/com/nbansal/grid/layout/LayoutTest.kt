@@ -83,8 +83,44 @@ class LayoutTest {
         assertEquals(2 * 2 + 2 * 2, marks.size)
     }
 
-    @Test fun windowAndCaptionGeometry() {
-        assertEquals(68f, mini.windowBottomMm, d)
-        assertEquals(18f, mini.captionHeightMm, d)
+    @Test fun windowAndFooterGeometry() {
+        assertEquals(68f, mini.window.bottom, d)
+        assertEquals(18f, mini.footer!!.height, d)
+        assertEquals(46f, mini.footer!!.width, d)
+    }
+
+    @Test fun templatesAreSane() {
+        assertEquals(CardTemplate.All.size, CardTemplate.All.map { it.id }.toSet().size)
+        for (t in CardTemplate.All) {
+            val card = RectMm(0f, 0f, t.cardWidthMm, t.cardHeightMm)
+            fun inside(r: RectMm) = r.left >= card.left && r.top >= card.top && r.right <= card.right && r.bottom <= card.bottom
+            assertTrue(t.photoWindows.isNotEmpty())
+            t.photoWindows.forEach { assertTrue(inside(it)) }
+            t.footer?.let { f ->
+                assertTrue(inside(f))
+                t.photoWindows.forEach { assertTrue(it.bottom <= f.top + d || it.right <= f.left || it.left >= f.right) }
+            }
+        }
+        assertEquals(mini, CardTemplate.byId("mini"))
+        assertEquals(mini, CardTemplate.byId("unknown"))
+    }
+
+    @Test fun zoomKeepsPointUnderCentroid() {
+        val w = mini.window
+        val bw = 800f; val bh = 1000f
+        val cx = w.right - 5f; val cy = w.top + 5f
+        // image point under the centroid before and after a pinch
+        fun pointUnder(st: PanZoom.State): Pair<Float, Float> {
+            val s = PanZoom.baseScale(bw, bh, w) * st.zoom
+            val (rx, ry) = PanZoom.panRangeMm(bw, bh, st.zoom, w)
+            val icx = (w.left + w.right) / 2 + st.panX * rx
+            val icy = (w.top + w.bottom) / 2 + st.panY * ry
+            return ((cx - icx) / s) to ((cy - icy) / s)
+        }
+        val s0 = PanZoom.State(2f, 0.2f, -0.1f)
+        val s1 = PanZoom.transform(bw, bh, w, s0, cx, cy, 0f, 0f, 1.5f)
+        val a = pointUnder(s0); val b = pointUnder(s1)
+        assertEquals(a.first, b.first, 0.5f)
+        assertEquals(a.second, b.second, 0.5f)
     }
 }
