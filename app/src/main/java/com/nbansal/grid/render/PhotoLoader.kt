@@ -13,20 +13,22 @@ import kotlin.math.roundToInt
 
 /** Decodes photos (EXIF-aware) downsampled to what is needed. */
 class PhotoLoader(private val resolver: ContentResolver) {
-    private val cache = object : LruCache<Uri, Bitmap>(
+    private val cache = object : LruCache<String, Bitmap>(
         (Runtime.getRuntime().maxMemory() / 1024 / 6).toInt(),
     ) {
-        override fun sizeOf(key: Uri, value: Bitmap) = value.byteCount / 1024
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount / 1024
     }
 
     /** Screen-sized, cached. */
-    suspend fun preview(uri: Uri): Bitmap? =
+    suspend fun preview(uri: String): Bitmap? =
         cache.get(uri) ?: decode(uri, PREVIEW_W, PREVIEW_H)?.also { cache.put(uri, it) }
 
-    /** ~300 DPI for the photo window with zoom headroom; not cached. */
-    suspend fun forPrint(uri: Uri): Bitmap? = decode(uri, PRINT_W, PRINT_H)
+    /** ~300 DPI for a [wMm] x [hMm] window with 1.3x zoom headroom; not cached. */
+    suspend fun forPrint(uri: String, wMm: Float, hMm: Float): Bitmap? =
+        decode(uri, (wMm * PRINT_PX_PER_MM).roundToInt().coerceAtLeast(64), (hMm * PRINT_PX_PER_MM).roundToInt().coerceAtLeast(64))
 
-    private suspend fun decode(uri: Uri, targetW: Int, targetH: Int): Bitmap? = withContext(Dispatchers.IO) {
+    private suspend fun decode(uriString: String, targetW: Int, targetH: Int): Bitmap? = withContext(Dispatchers.IO) {
+        val uri = Uri.parse(uriString)
         try {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
                 val w = info.size.width
@@ -45,8 +47,6 @@ class PhotoLoader(private val resolver: ContentResolver) {
     companion object {
         const val PREVIEW_W = 480
         const val PREVIEW_H = 640
-        // 46 x 62 mm at 300 DPI is ~543 x 732 px; 1.3x headroom for zoom.
-        const val PRINT_W = 706
-        const val PRINT_H = 952
+        const val PRINT_PX_PER_MM = 300f / 25.4f * 1.3f
     }
 }

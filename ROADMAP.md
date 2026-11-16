@@ -2,6 +2,11 @@
 
 Turn phone photos into printable instant-film style cards, laid out on an A4 sheet, exported as a PDF for any print shop.
 
+## Working agreement
+- **Build only when the owner explicitly asks.** Between builds we only discuss and grow the backlog below.
+- When asked to build, the whole "Next build" backlog ships as one batch → one release.
+- Opus plans/reviews; Sonnet/Haiku build. Merging to `main` auto-releases the top CHANGELOG version.
+
 ## Decisions
 
 | Area | Decision |
@@ -9,10 +14,10 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 | Platform | Android only, **minSdk 30 (Android 11)** |
 | Package | `com.nbansal.grid` · display name **Grid.** |
 | Stack | Kotlin + Jetpack Compose, `android.graphics.pdf.PdfDocument`, Photo Picker (no storage permissions) |
-| Builds | GitHub Actions → signed APK → GitHub Releases (repo is public). No local builds required. |
-| Updates | In-app updater reads the latest GitHub release, downloads the APK, hands it to the system installer. One stable signing key, stored as a GitHub secret, backed up offline. |
-| Captions | Per photo, optional, with an "apply to all" shortcut |
-| Aesthetic | **Stationery (light) + Darkroom (dark)**, following system theme. See below. |
+| Builds | GitHub Actions → signed APK → GitHub Releases (public repo). Merge to `main` = release. |
+| Updates | In-app updater reads the latest GitHub release, downloads the APK, hands it to the system installer. One stable signing key (GitHub secrets, owner keeps backup). |
+| Captions | Per photo, optional, with "apply to all" |
+| Aesthetic | **Stationery (light) + Darkroom (dark)**, following system theme |
 
 ## Design system
 
@@ -27,43 +32,24 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 
 - Type: Space Grotesk (UI), JetBrains Mono (labels, sizes, versions), Caveat (captions on cards only).
 - Accent used sparingly: the "." in the wordmark, primary button, progress, selection.
-- Corners 6dp, sheets 14dp top corners, thin line dividers, no gradients.
 
 ## Print spec
+- Pages true-to-size, images ≥300 DPI, 5 mm safe margin, crop marks, 10 mm calibration ruler.
+- Mini card 54 × 86 mm, photo window 46 × 62 mm, footer strip 46 × 18 mm → 9 per A4 (3×3).
 
-- Pages true-to-size, images embedded at ≥300 DPI.
-- 5 mm safe margin; optional thin cut marks.
-- 10 mm calibration ruler + "print at 100% / actual size" reminder.
-- MVP template: **Mini** card 54 × 86 mm → 9 per A4 (3×3).
+## Shipped
+- **v0.1.0** — scaffold, themes, CI releases, in-app updater
+- **v0.2.0** — photo picker, Mini cards, pan/zoom, captions, A4 preview, PDF export (share/save), app icon
+- **v0.3.0** — caption studio (8 fonts, colours, frames, date/location, footer layouts, film stamp, sheet-wide Style + per-card override); 15 card shapes (instant, prints, film strip, stamp, ticket, postcard, bookmark, trading card, slide mount, contact sheet); mixed sheets with straight-cut packing; 11 film filters with adjustments, sheet-wide or per card, baked into the PDF; drafts that auto-save with their own photo copies; drag to reorder; "Auto" frame/font defaults; R8 shrinking (APK ~21 MB → see CHANGELOG); fixes (caption glyph overlap, dark-mode top bar, back saves edits, pinch anchor)
 
-## Phase 0 — Foundation
-- [ ] Compose project scaffold, theme tokens
-- [ ] GitHub Actions: build, sign, release on tag
-- [ ] In-app updater (check → download → install)
-- [ ] Versioning + changelog convention
+## Next build
 
-## Phase 1 — MVP
-- [ ] Pick photos (Photo Picker)
-- [ ] Mini template
-- [ ] Auto-crop with pan/zoom adjust per photo
-- [ ] Per-photo captions
-- [ ] Live A4 preview, auto-paginate past 9 photos
-- [ ] Export PDF → share / save
+Nothing queued. Add the next batch here.
 
-## Phase 2 — Variety
-- [ ] Templates: Classic (88×107, 4/sheet), Square, Photo strip
-- [ ] Date stamp (from photo date), caption fonts
-- [ ] Paper sizes: A4, Letter, A3, 4×6
-- [ ] Toggles: cut marks, border width/colour
-- [ ] Light filters: B&W, warm, faded
-
-## Phase 3 — Polish
-- [ ] Saved projects / drafts
-- [ ] Drag to reorder
-- [ ] Mixed-size sheets (auto-pack)
-- [ ] Extra frames: film strip, postage stamp, ticket stub, wallet/passport
+## Later (ideas, unprioritised)
+- Paper sizes: Letter, A3, 4×6 (A4 only for now)
 
 ## Team
 - **Opus** — architecture, task specs, reviews, decisions
-- **Sonnet** — Gradle/CI/signing, updater, layout + PDF engine, screens
-- **Haiku** — tokens, strings, icons, docs, layout-math tests, small fixes
+- **Sonnet** — complex features (renderer, PDF, updater, screens)
+- **Haiku** — small/mechanical tasks (tokens, strings, docs, simple fixes)

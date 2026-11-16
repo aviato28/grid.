@@ -11,6 +11,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.nbansal.grid.ui.ReorderScreen
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.Color
@@ -21,7 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.nbansal.grid.sheet.SheetViewModel
-import com.nbansal.grid.ui.EditPhotoScreen
+import com.nbansal.grid.ui.EditCardScreen
 import com.nbansal.grid.ui.HomeScreen
 import com.nbansal.grid.ui.SheetScreen
 import com.nbansal.grid.ui.rememberPhotoPicker
@@ -33,6 +36,11 @@ import com.nbansal.grid.update.UpdateViewModel
 class MainActivity : ComponentActivity() {
     private val updateVm: UpdateViewModel by viewModels()
     private val sheetVm: SheetViewModel by viewModels()
+
+    override fun onStop() {
+        super.onStop()
+        sheetVm.flush()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,11 +60,14 @@ class MainActivity : ComponentActivity() {
                     val nav = rememberNavController()
                     NavHost(nav, startDestination = "home", modifier = Modifier.padding(it)) {
                         composable("home") {
+                            val scope = rememberCoroutineScope()
                             val pick = rememberPhotoPicker { uris ->
-                                sheetVm.setPhotos(uris)
+                                sheetVm.startNewSheet(uris)
                                 nav.navigate("sheet")
                             }
                             HomeScreen(
+                                vm = sheetVm,
+                                onOpenDraft = { id -> scope.launch { if (sheetVm.openDraft(id)) nav.navigate("sheet") } },
                                 checking = state is UpdateState.Checking,
                                 onNewSheet = pick,
                                 onCheckForUpdates = { updateVm.check(silent = false) },
@@ -67,10 +78,12 @@ class MainActivity : ComponentActivity() {
                                 vm = sheetVm,
                                 onBack = { nav.popBackStack() },
                                 onEdit = { nav.navigate("edit/$it") },
+                                onReorder = { nav.navigate("reorder") },
                             )
                         }
+                        composable("reorder") { ReorderScreen(sheetVm) { nav.popBackStack() } }
                         composable("edit/{index}", arguments = listOf(navArgument("index") { type = NavType.IntType })) {
-                            EditPhotoScreen(sheetVm, it.arguments?.getInt("index") ?: 0) { nav.popBackStack() }
+                            EditCardScreen(sheetVm, it.arguments?.getInt("index") ?: 0) { nav.popBackStack() }
                         }
                     }
                 }
