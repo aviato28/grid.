@@ -53,7 +53,7 @@ enum class DateFormat(val label: String, private val pattern: String) {
     }
 }
 
-/** Sheet-level default; a photo may override it entirely via [Photo.styleOverride]. */
+/** Sheet-level default; a photo may override it entirely via [Card.styleOverride]. */
 data class CardStyle(
     val font: CaptionFont = CaptionFont.Handwritten,
     val textSize: TextSize = TextSize.M,
@@ -83,8 +83,8 @@ fun luminance(argb: Int): Float {
 fun isDarkColor(argb: Int) = luminance(argb) < 0.18f
 
 /** Dark frame + Ink text renders White; light frame + White text renders Ink. */
-fun effectiveTextColor(style: CardStyle): Int {
-    val dark = isDarkColor(style.frameColor.argb)
+fun effectiveTextColor(style: CardStyle, frameArgb: Int = style.frameColor.argb): Int {
+    val dark = isDarkColor(frameArgb)
     return when {
         dark && style.textColor == TextColor.Ink -> TextColor.White.argb
         !dark && style.textColor == TextColor.White -> TextColor.Ink.argb
