@@ -4,6 +4,7 @@ import android.graphics.pdf.PdfDocument
 import com.nbansal.grid.layout.CardTemplate
 import com.nbansal.grid.layout.Paper
 import com.nbansal.grid.layout.layoutSheet
+import com.nbansal.grid.sheet.CardStyle
 import com.nbansal.grid.sheet.Photo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -24,6 +25,7 @@ class PdfExporter(
 
     suspend fun export(
         photos: List<Photo>,
+        sheetStyle: CardStyle,
         paper: Paper = Paper.A4,
         template: CardTemplate = CardTemplate.Mini,
         onProgress: (page: Int, total: Int) -> Unit,
@@ -51,7 +53,7 @@ class PdfExporter(
                 ).create()
                 val pdfPage = doc.startPage(info)
                 pdfPage.canvas.scale(pt, pt) // exact mm -> pt; the page size itself must be an int
-                renderer.drawPage(pdfPage.canvas, paper, page, photos) { bitmaps[it.id] }
+                renderer.drawPage(pdfPage.canvas, paper, page, photos, sheetStyle) { bitmaps[it.id] }
                 doc.finishPage(pdfPage)
                 bitmaps.values.forEach { it.recycle() }
             }

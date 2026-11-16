@@ -5,14 +5,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Typeface
 import android.net.Uri
-import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.nbansal.grid.R
 import com.nbansal.grid.layout.CardTemplate
 import com.nbansal.grid.layout.Paper
 import com.nbansal.grid.layout.SheetPage
 import com.nbansal.grid.layout.layoutSheet
+import com.nbansal.grid.render.CaptionFonts
 import com.nbansal.grid.render.PdfExporter
 import com.nbansal.grid.render.PhotoLoader
 import com.nbansal.grid.render.SheetRenderer
@@ -38,10 +37,8 @@ class SheetViewModel(app: Application) : AndroidViewModel(app) {
     val paper = Paper.A4
     val template = CardTemplate.Mini
     val loader = PhotoLoader(app.contentResolver)
-    val renderer = SheetRenderer(
-        ResourcesCompat.getFont(app, R.font.caveat) ?: Typeface.SERIF,
-        template,
-    )
+    private val typefaces = HashMap<CaptionFont, Typeface>()
+    val renderer = SheetRenderer { f -> typefaces.getOrPut(f) { CaptionFonts.load(app, f) } }
 
     private var nextId = 1L
     private val _photos = MutableStateFlow<List<Photo>>(emptyList())
@@ -51,24 +48,53 @@ class SheetViewModel(app: Application) : AndroidViewModel(app) {
     val export: StateFlow<ExportState> = _export.asStateFlow()
     private var exportJob: Job? = null
 
+    /** Sheet-wide default style; photos may override it. */
+    private val _style = MutableStateFlow(CardStyle())
+    val style: StateFlow<CardStyle> = _style.asStateFlow()
+    fun setStyle(s: CardStyle) { _style.value = s }
+
     private fun wrap(uris: List<Uri>) = uris.map { Photo(nextId++, it) }
 
-    fun setPhotos(uris: List<Uri>) { _photos.value = wrap(uris.take(MAX_PHOTOS)) }
+    /** Fills date/location from EXIF in the background; never overwrites what the user already set. */
+    private fun prefill(added: List<Photo>) {
+        viewModelScope.launch {
+            for (p in added) {
+                val meta = PhotoMetaReader.read(getApplication(), p.uri)
+                _photos.update { list ->
+                    list.map {
+                        if (it.id != p.id) it
+                        else it.copy(
+                            date = it.date ?: meta.date,
+                            location = it.location.ifBlank { meta.location },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun setPhotos(uris: List<Uri>) {
+        val w = wrap(uris.take(MAX_PHOTOS))
+        _photos.value = w
+        prefill(w)
+    }
 
     fun addPhotos(uris: List<Uri>) {
-        _photos.update { (it + wrap(uris)).take(MAX_PHOTOS) }
+        val room = (MAX_PHOTOS - _photos.value.size).coerceAtLeast(0)
+        val w = wrap(uris.take(room))
+        _photos.update { it + w }
+        prefill(w)
     }
 
-    fun update(id: Long, caption: String, zoom: Float, panX: Float, panY: Float) = _photos.update { list ->
-        list.map { if (it.id == id) it.copy(caption = caption, zoom = zoom, panX = panX, panY = panY) else it }
-    }
+    /** Replaces the photo with the same id by [photo]. */
+    fun replace(photo: Photo) = _photos.update { list -> list.map { if (it.id == photo.id) photo else it } }
 
-    fun applyCaptionToAll(caption: String) = _photos.update { l -> l.map { it.copy(caption = caption) } }
+    fun applyToAll(from: Photo) = _photos.update { l -> l.map { it.copy(caption = from.caption) } }
 
     fun remove(id: Long) = _photos.update { l -> l.filterNot { it.id == id } }
 
     /** Renders one page into a bitmap at [pxPerMm] using the same renderer as the PDF. */
-    suspend fun renderPreview(page: SheetPage, all: List<Photo>, pxPerMm: Float): Bitmap {
+    suspend fun renderPreview(page: SheetPage, all: List<Photo>, sheetStyle: CardStyle, pxPerMm: Float): Bitmap {
         val bitmaps = HashMap<Long, Bitmap>()
         for (j in page.cards.indices) {
             val p = all.getOrNull(page.firstIndex + j) ?: continue
@@ -80,7 +106,7 @@ class SheetViewModel(app: Application) : AndroidViewModel(app) {
             )
             val canvas = Canvas(bmp)
             canvas.scale(pxPerMm, pxPerMm)
-            renderer.drawPage(canvas, paper, page, all) { bitmaps[it.id] }
+            renderer.drawPage(canvas, paper, page, all, sheetStyle) { bitmaps[it.id] }
             bmp
         }
     }
@@ -93,7 +119,7 @@ class SheetViewModel(app: Application) : AndroidViewModel(app) {
         val dir = File(getApplication<Application>().cacheDir, "exports")
         exportJob = viewModelScope.launch {
             try {
-                val r = PdfExporter(renderer, loader, dir).export(snapshot, paper, template) { p, t ->
+                val r = PdfExporter(renderer, loader, dir).export(snapshot, _style.value, paper, template) { p, t ->
                     _export.value = ExportState.Rendering(p, t)
                 }
                 _export.value = ExportState.Done(r.file, r.pages)

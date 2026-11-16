@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -62,6 +63,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nbansal.grid.layout.SheetPage
 import com.nbansal.grid.layout.layoutSheet
+import com.nbansal.grid.sheet.CardStyle
 import com.nbansal.grid.sheet.ExportState
 import com.nbansal.grid.sheet.Photo
 import com.nbansal.grid.sheet.SheetViewModel
@@ -78,6 +80,8 @@ private const val PREVIEW_PX_PER_MM = 5f
 fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
     val colors = GridTheme.colors
     val photos by vm.photos.collectAsStateWithLifecycle()
+    val sheetStyle by vm.style.collectAsStateWithLifecycle()
+    var showStyle by remember { mutableStateOf(false) }
     val pages = remember(photos.size) { layoutSheet(vm.paper, vm.template, photos.size) }
     val pickMore = rememberPhotoPicker { vm.addPhotos(it) }
     val pagerState = rememberPagerState { pages.size }
@@ -100,7 +104,7 @@ fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
         } else {
             HorizontalPager(pagerState, Modifier.weight(1f).fillMaxWidth(), key = { it }) { i ->
                 Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    PagePreview(vm, pages[i], photos, onTapPhoto = onEdit)
+                    PagePreview(vm, pages[i], photos, sheetStyle, onTapPhoto = onEdit)
                 }
             }
             Text(
@@ -110,42 +114,54 @@ fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
             )
         }
         HorizontalDivider(color = colors.line)
-        Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                Modifier.border(1.dp, colors.line, MaterialTheme.shapes.small).padding(horizontal = 10.dp, vertical = 8.dp),
-            ) { Text("Mini 54×86", style = MonoLabel) }
-            OutlinedButton(
-                onClick = pickMore,
-                shape = MaterialTheme.shapes.small,
-                border = androidx.compose.foundation.BorderStroke(1.dp, colors.line),
-            ) { Text("+ Add", color = MaterialTheme.colorScheme.onSurface) }
-            Spacer(Modifier.weight(1f))
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                ToolButton("Shapes", enabled = false) {}
+                ToolButton("Style", enabled = photos.isNotEmpty()) { showStyle = true }
+                ToolButton("Filter", enabled = false) {}
+                ToolButton("Reorder", enabled = false) {}
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    Modifier.border(1.dp, colors.line, MaterialTheme.shapes.small).padding(horizontal = 10.dp, vertical = 8.dp),
+                ) { Text("Mini 54×86", style = MonoLabel) }
+                OutlinedButton(
+                    onClick = pickMore,
+                    shape = MaterialTheme.shapes.small,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.line),
+                ) { Text("+ Add", color = MaterialTheme.colorScheme.onSurface) }
+                Spacer(Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(8.dp))
             Button(
                 onClick = vm::startExport,
                 enabled = photos.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = MaterialTheme.shapes.small,
                 colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = Color.White),
             ) { Text("Export PDF", fontWeight = FontWeight.Medium) }
         }
     }
+    if (showStyle) StyleSheet(sheetStyle, vm::setStyle) { showStyle = false }
     ExportSheet(vm)
 }
 
 @Composable
-private fun PagePreview(vm: SheetViewModel, page: SheetPage, photos: List<Photo>, onTapPhoto: (Int) -> Unit) {
+private fun PagePreview(vm: SheetViewModel, page: SheetPage, photos: List<Photo>, sheetStyle: CardStyle, onTapPhoto: (Int) -> Unit) {
     val onTap by rememberUpdatedState(onTapPhoto)
     // Only this page's photos matter: changes elsewhere do not trigger a re-render.
     val pagePhotos = remember(photos, page) {
         photos.subList(page.firstIndex, page.firstIndex + page.cards.size)
     }
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(pagePhotos, page) {
+    LaunchedEffect(pagePhotos, page, sheetStyle) {
         val local = page.copy(firstIndex = 0)
-        val bmp: Bitmap = vm.renderPreview(local, pagePhotos, PREVIEW_PX_PER_MM)
+        val bmp: Bitmap = vm.renderPreview(local, pagePhotos, sheetStyle, PREVIEW_PX_PER_MM)
         image = bmp.asImageBitmap()
     }
     var size by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -247,4 +263,26 @@ private fun share(context: android.content.Context, file: File) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(send, "Share PDF"))
+}
+
+@Composable
+private fun ToolButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    TextButton(onClick = onClick, enabled = enabled) {
+        Text(label.uppercase(), style = MonoLabel, color = if (enabled) MaterialTheme.colorScheme.onBackground else GridTheme.colors.muted.copy(alpha = 0.5f))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StyleSheet(style: CardStyle, onChange: (CardStyle) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+        ) {
+            Text("Sheet style", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Text("Applies to every card without its own override", style = MonoLabel, color = GridTheme.colors.muted)
+            StyleControls(style, onChange)
+        }
+    }
 }
