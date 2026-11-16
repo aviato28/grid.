@@ -81,6 +81,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nbansal.grid.layout.SheetPage
 import com.nbansal.grid.sheet.CardStyle
+import com.nbansal.grid.filter.FilterSettings
 import com.nbansal.grid.sheet.ExportState
 import com.nbansal.grid.sheet.SheetViewModel
 import com.nbansal.grid.ui.theme.GridTheme
@@ -93,12 +94,16 @@ import java.io.File
 private const val PREVIEW_PX_PER_MM = 5f
 
 @Composable
-fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
+fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit, onReorder: () -> Unit) {
     val colors = GridTheme.colors
     val cards by vm.cards.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val group by vm.groupByShape.collectAsStateWithLifecycle()
     val sheetStyle by vm.style.collectAsStateWithLifecycle()
+    val sheetFilter by vm.filter.collectAsStateWithLifecycle()
+    val name by vm.name.collectAsStateWithLifecycle()
+    var showFilter by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     var showStyle by remember { mutableStateOf(false) }
     var showShapes by remember { mutableStateOf(false) }
     val templateIds = cards.map { it.templateId }
@@ -116,8 +121,10 @@ fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (selecting) "${selection.size} selected" else "New sheet",
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium,
+                    if (selecting) "${selection.size} selected" else name,
+                    Modifier.clickable(enabled = !selecting) { renaming = true },
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 Text(
                     "${cards.size} ${if (cards.size == 1) "card" else "cards"} · ${pages.size} ${if (pages.size == 1) "page" else "pages"}",
@@ -137,7 +144,7 @@ fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
             HorizontalPager(pagerState, Modifier.weight(1f).fillMaxWidth(), key = { it }) { i ->
                 Box(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
                     PagePreview(
-                        vm, pages.getOrNull(i) ?: return@Box, cards, sheetStyle, selection,
+                        vm, pages.getOrNull(i) ?: return@Box, cards, sheetStyle, sheetFilter, selection,
                         onTap = { idx ->
                             if (selecting) vm.toggleSelect(cards[idx].id) else onEdit(idx)
                         },
@@ -156,8 +163,8 @@ fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 ToolButton("Shapes", enabled = cards.isNotEmpty()) { showShapes = true }
                 ToolButton("Style", enabled = cards.isNotEmpty()) { showStyle = true }
-                ToolButton("Filter", enabled = false) {}
-                ToolButton("Reorder", enabled = false) {}
+                ToolButton("Filter", enabled = cards.isNotEmpty()) { showFilter = true }
+                ToolButton("Reorder", enabled = cards.size > 1, onClick = onReorder)
             }
             Spacer(Modifier.height(8.dp))
             Row(
@@ -188,13 +195,15 @@ fun SheetScreen(vm: SheetViewModel, onBack: () -> Unit, onEdit: (Int) -> Unit) {
         }
     }
     if (showStyle) StyleSheet(sheetStyle, vm::setStyle) { showStyle = false }
+    if (showFilter) FilterSheet(vm, sheetFilter, cards.firstNotNullOfOrNull { c -> c.filledSlots.firstOrNull()?.uri }) { showFilter = false }
+    if (renaming) NameDialog("Rename sheet", name, { renaming = false }) { vm.setName(it); renaming = false }
     if (showShapes) ShapeSheet(vm, cards, selection, group) { showShapes = false }
     ExportSheet(vm)
 }
 
 @Composable
 private fun PagePreview(
-    vm: SheetViewModel, page: SheetPage, cards: List<Card>, sheetStyle: CardStyle, selection: Set<Long>,
+    vm: SheetViewModel, page: SheetPage, cards: List<Card>, sheetStyle: CardStyle, sheetFilter: FilterSettings, selection: Set<Long>,
     onTap: (Int) -> Unit, onLongPress: (Int) -> Unit,
 ) {
     val tap by rememberUpdatedState(onTap)
@@ -203,9 +212,9 @@ private fun PagePreview(
     val pageCards = page.items.map { cards.getOrNull(it.index) }
     val sameShape = page.items.map { it.index }.map { i -> cards.take(i).count { c -> c.templateId == cards[i].templateId } }
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(pageCards, sameShape, page, sheetStyle) {
+    LaunchedEffect(pageCards, sameShape, page, sheetStyle, sheetFilter) {
         if (pageCards.any { it == null }) return@LaunchedEffect
-        val bmp: Bitmap = vm.renderPreview(page, cards, sheetStyle, PREVIEW_PX_PER_MM)
+        val bmp: Bitmap = vm.renderPreview(page, cards, sheetStyle, sheetFilter, PREVIEW_PX_PER_MM)
         image = bmp.asImageBitmap()
     }
     var size by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -396,6 +405,21 @@ private fun StyleSheet(style: CardStyle, onChange: (CardStyle) -> Unit, onDismis
             Text("Sheet style", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
             Text("Applies to every card without its own override", style = MonoLabel, color = GridTheme.colors.muted)
             StyleControls(style, onChange)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(vm: SheetViewModel, filter: FilterSettings, sampleUri: String?, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text("Sheet filter", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Text("Applies to every card without its own filter", style = MonoLabel, color = GridTheme.colors.muted)
+            FilterControls(filter, sampleUri, vm.photos, vm::setFilter)
         }
     }
 }

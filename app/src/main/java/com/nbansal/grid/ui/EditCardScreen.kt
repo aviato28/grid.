@@ -76,6 +76,7 @@ import com.nbansal.grid.sheet.MAX_STAT_NAME
 import com.nbansal.grid.layout.CardField
 import com.nbansal.grid.layout.CardTemplate
 import androidx.compose.foundation.border
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.mutableIntStateOf
@@ -98,6 +99,7 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
     val colors = GridTheme.colors
     val cards by vm.cards.collectAsStateWithLifecycle()
     val sheetStyle by vm.style.collectAsStateWithLifecycle()
+    val sheetFilter by vm.filter.collectAsStateWithLifecycle()
     val card = cards.getOrNull(index)
     if (card == null) {
         LaunchedEffect(Unit) { onClose() }
@@ -108,17 +110,21 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
     var tab by remember { mutableStateOf(EditTab.Text) }
     var slot by remember(id) { mutableIntStateOf(0) }
     val uris = draft.slots.map { it.uri }
-    val bitmaps by produceState(emptyMap<String, android.graphics.Bitmap>(), uris) {
-        for (u in uris.filterNotNull().distinct()) {
-            if (u in value) continue
-            vm.loader.preview(u)?.let { value = value + (u to it) }
-        }
+    val filterNow = draft.filterFor(sheetFilter)
+    // One (filtered) bitmap per slot; keeps the previous ones while a slider drag recomputes.
+    val bitmaps by produceState(emptyList<android.graphics.Bitmap?>(), uris, filterNow, id) {
+        value = draft.slots.indices.map { vm.photos.preview(draft, it, filterNow) }
     }
     val tpl = draft.template
-    val effectiveStyle = draft.styleFor(sheetStyle)
+    val effectiveStyle = draft.rawStyle(sheetStyle)
+    val resolvedFont = draft.resolveStyle(sheetStyle).font
     val activeSlot = slot.coerceIn(0, draft.slots.size - 1)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val pickPhoto = rememberSinglePhotoPicker { uri ->
-        draft = draft.copy(slots = draft.slots.mapIndexed { i, s -> if (i == activeSlot) Slot(uri.toString()) else s })
+        scope.launch {
+            val u = vm.importPhoto(uri)
+            draft = draft.copy(slots = draft.slots.mapIndexed { i, s -> if (i == activeSlot) Slot(u) else s })
+        }
     }
 
     fun save() { vm.replace(draft) }
@@ -155,7 +161,7 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
                     .pointerInput(id, activeSlot) {
                         detectTransformGestures { centroid, pan, z, _ ->
                             val sl = draft.slots.getOrNull(activeSlot) ?: return@detectTransformGestures
-                            val b = sl.uri?.let { bitmaps[it] } ?: return@detectTransformGestures
+                            val b = bitmaps.getOrNull(activeSlot) ?: return@detectTransformGestures
                             val pxPerMm = size.width / tpl.cardWidthMm
                             val r = PanZoom.transform(
                                 b.width.toFloat(), b.height.toFloat(), tpl.photoWindows[activeSlot],
@@ -173,7 +179,7 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
                     val nc = c.nativeCanvas
                     nc.save()
                     nc.scale(s, s)
-                    vm.renderer.drawCard(nc, draft, sheetStyle, draft.slots.map { it.uri?.let(bitmaps::get) })
+                    vm.renderer.drawCard(nc, draft, sheetStyle, bitmaps)
                     nc.restore()
                 }
                 if (tpl.windowCount > 1) {
@@ -226,7 +232,7 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
         HorizontalDivider(color = colors.line)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             when (tab) {
-                EditTab.Text -> TextTab(draft, effectiveStyle, { draft = it }, { vm.applyCaptionToAll(draft) }) { vm.remove(id); onClose() }
+                EditTab.Text -> TextTab(draft, effectiveStyle, resolvedFont, { draft = it }, { vm.applyCaptionToAll(draft) }) { vm.remove(id); onClose() }
                 EditTab.Style -> {
                     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("ONLY THIS CARD", style = MonoLabel, modifier = Modifier.weight(1f))
@@ -242,8 +248,18 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
                         if (draft.styleOverride != null) draft = draft.copy(styleOverride = s) else vm.setStyle(s)
                     }
                 }
-                EditTab.Filter -> Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-                    Text("FILTERS · COMING SOON", style = MonoLabel, color = colors.muted)
+                EditTab.Filter -> {
+                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("ONLY THIS CARD", style = MonoLabel, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = draft.filterOverride != null,
+                            onCheckedChange = { on -> draft = draft.copy(filterOverride = if (on) sheetFilter else null) },
+                            colors = SwitchDefaults.colors(checkedTrackColor = colors.accent, checkedThumbColor = Color.White),
+                        )
+                    }
+                    FilterControls(
+                        filterNow, draft.slots.getOrNull(activeSlot)?.uri ?: draft.filledSlots.firstOrNull()?.uri, vm.photos,
+                    ) { f -> if (draft.filterOverride != null) draft = draft.copy(filterOverride = f) else vm.setFilter(f) }
                 }
             }
         }
@@ -259,7 +275,7 @@ fun EditCardScreen(vm: SheetViewModel, index: Int, onClose: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TextTab(
-    draft: Card, style: com.nbansal.grid.sheet.CardStyle, onChange: (Card) -> Unit,
+    draft: Card, style: com.nbansal.grid.sheet.CardStyle, font: com.nbansal.grid.sheet.CaptionFont, onChange: (Card) -> Unit,
     onApplyAll: () -> Unit, onRemove: () -> Unit,
 ) {
     val colors = GridTheme.colors
@@ -278,7 +294,7 @@ private fun TextTab(
             singleLine = !long,
             minLines = if (long) 3 else 1,
             label = { Text(when (t.id) { "postcard" -> "Note"; "bookmark" -> "Quote"; "ticket" -> "Title"; else -> "Caption" }) },
-            textStyle = TextStyle(fontFamily = fontFamilyFor(style.font), fontSize = 24.sp),
+            textStyle = TextStyle(fontFamily = fontFamilyFor(font), fontSize = 24.sp),
             supportingText = { Text("${draft.caption.length}/${t.captionMax}", style = MonoLabel, color = colors.muted) },
             keyboardOptions = KeyboardOptions(imeAction = if (long) ImeAction.Default else ImeAction.Done),
             shape = MaterialTheme.shapes.small,

@@ -1,6 +1,7 @@
 package com.nbansal.grid.render
 
 import android.graphics.pdf.PdfDocument
+import com.nbansal.grid.filter.FilterSettings
 import com.nbansal.grid.layout.Paper
 import com.nbansal.grid.layout.packSheet
 import com.nbansal.grid.sheet.CardStyle
@@ -17,7 +18,7 @@ import kotlin.coroutines.coroutineContext
 
 class PdfExporter(
     private val renderer: SheetRenderer,
-    private val loader: PhotoLoader,
+    private val photos: FilteredPhotos,
     private val exportDir: File,
 ) {
     data class Result(val file: File, val pages: Int)
@@ -25,6 +26,7 @@ class PdfExporter(
     suspend fun export(
         cards: List<Card>,
         sheetStyle: CardStyle,
+        sheetFilter: FilterSettings = FilterSettings(),
         groupByShape: Boolean = true,
         paper: Paper = Paper.A4,
         onProgress: (page: Int, total: Int) -> Unit,
@@ -40,15 +42,13 @@ class PdfExporter(
             pages.forEachIndexed { i, page ->
                 coroutineContext.ensureActive()
                 onProgress(i + 1, pages.size)
-                // One page of bitmaps at a time; recycled right after drawing.
-                val bitmaps = HashMap<String, android.graphics.Bitmap>()
+                // One page of (filtered) bitmaps at a time; recycled right after drawing.
+                val bitmaps = HashMap<Pair<Int, Int>, android.graphics.Bitmap>()
                 for (item in page.items) {
                     val card = cards[item.index]
                     card.slots.forEachIndexed { k, slot ->
-                        val uri = slot.uri ?: return@forEachIndexed
-                        if (uri in bitmaps) return@forEachIndexed
-                        val win = card.template.photoWindows[k]
-                        loader.forPrint(uri, win.width, win.height)?.let { bitmaps[uri] = it }
+                        if (slot.uri == null) return@forEachIndexed
+                        photos.forPrint(card, k, card.filterFor(sheetFilter))?.let { bitmaps[item.index to k] = it }
                     }
                 }
                 val info = PdfDocument.PageInfo.Builder(
@@ -56,7 +56,7 @@ class PdfExporter(
                 ).create()
                 val pdfPage = doc.startPage(info)
                 pdfPage.canvas.scale(pt, pt) // exact mm -> pt; the page size itself must be an int
-                renderer.drawPage(pdfPage.canvas, paper, page, cards, sheetStyle, { bitmaps[it] }, preview = false)
+                renderer.drawPage(pdfPage.canvas, paper, page, cards, sheetStyle, { ci, k -> bitmaps[ci to k] }, preview = false)
                 doc.finishPage(pdfPage)
                 bitmaps.values.forEach { it.recycle() }
             }

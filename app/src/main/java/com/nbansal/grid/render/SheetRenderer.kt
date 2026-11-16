@@ -52,7 +52,7 @@ private const val ACCENT = 0xFFFF5A1F.toInt()
  * The single renderer for both the on-screen preview and the PDF. Everything is in millimetres:
  * callers must scale the canvas to px/mm (or points/mm) before calling.
  *
- * Stage C hook: apply the film filter (`CardStyle.filter`) to the bitmap/Paint inside [drawWindow].
+ * Film filters are applied to the bitmaps before they get here (see [FilteredPhotos]); [drawWindow] just draws them.
  */
 class SheetRenderer(private val typefaceFor: (CaptionFont) -> Typeface) {
     private val lightOutline = Color.parseColor("#E0DCD3")
@@ -120,7 +120,7 @@ class SheetRenderer(private val typefaceFor: (CaptionFont) -> Typeface) {
     @Synchronized
     fun drawPage(
         canvas: Canvas, paper: Paper, page: SheetPage, cards: List<Card>, sheetStyle: CardStyle,
-        bitmapFor: (String) -> Bitmap?, preview: Boolean = true,
+        bitmapFor: (cardIndex: Int, slot: Int) -> Bitmap?, preview: Boolean = true,
     ) {
         fill.color = Color.WHITE
         canvas.drawRect(0f, 0f, paper.widthMm, paper.heightMm, fill)
@@ -135,7 +135,7 @@ class SheetRenderer(private val typefaceFor: (CaptionFont) -> Typeface) {
             } else {
                 canvas.translate(item.rect.left, item.rect.top)
             }
-            drawCard(canvas, card, sheetStyle, card.slots.map { s -> s.uri?.let(bitmapFor) }, ordinalOf(cards, item.index), preview)
+            drawCard(canvas, card, sheetStyle, card.slots.indices.map { k -> bitmapFor(item.index, k) }, ordinalOf(cards, item.index), preview)
             canvas.restore()
         }
         drawFooter(canvas)
@@ -168,7 +168,7 @@ class SheetRenderer(private val typefaceFor: (CaptionFont) -> Typeface) {
             canvas.drawRect(0f, 0f, w, h, fill)
             canvas.drawRect(0f, 0f, w, h, outline)
         }
-        val tf = typefaceFor(style.font)
+        val tf = typefaceFor(rs.font)
         val mono = typefaceFor(CaptionFont.Mono)
         val textColor = if (dark) Color.WHITE else effectiveTextColor(style, frame)
         val ctx = Ctx(card, t, style, frame, textColor, tf, mono, ordinal)
