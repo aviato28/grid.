@@ -21,3 +21,13 @@ fun rememberPhotoPicker(onPicked: (List<Uri>) -> Unit): () -> Unit {
     }
     return { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
 }
+
+/** Opens the system photo picker for exactly one image. */
+@Composable
+fun rememberSinglePhotoPicker(onPicked: (Uri) -> Unit): () -> Unit {
+    val current by rememberUpdatedState(onPicked)
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) current(uri)
+    }
+    return { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+}

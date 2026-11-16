@@ -21,7 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.nbansal.grid.sheet.SheetViewModel
-import com.nbansal.grid.ui.EditPhotoScreen
+import com.nbansal.grid.ui.EditCardScreen
 import com.nbansal.grid.ui.HomeScreen
 import com.nbansal.grid.ui.SheetScreen
 import com.nbansal.grid.ui.rememberPhotoPicker
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("edit/{index}", arguments = listOf(navArgument("index") { type = NavType.IntType })) {
-                            EditPhotoScreen(sheetVm, it.arguments?.getInt("index") ?: 0) { nav.popBackStack() }
+                            EditCardScreen(sheetVm, it.arguments?.getInt("index") ?: 0) { nav.popBackStack() }
                         }
                     }
                 }
