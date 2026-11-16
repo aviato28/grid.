@@ -59,15 +59,19 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 - [ ] Film stamp: orange digital date (`'26 11 15`) inside the photo, bottom-right.
 - [ ] Sheet-wide **Style** sheet + per-photo "Only this photo" override.
 
-### Film filters — *in discussion*
-- [ ] Film-inspired looks (Kodak/Fuji/Polaroid-style), intensity slider, grain/vignette/halation. Final list TBD.
+### Film filters (approved)
+- [ ] Gold, Portrait, Vivid, Superia, Instant, Tungsten, Disposable, Expired, Tri-X, Soft B&W, Sepia (film-inspired names, no brands)
+- [ ] Intensity slider; grain, vignette, light-leak toggles; brightness/contrast/warmth
+- [ ] Sheet-wide default + per-photo override; baked into PDF
 
-### More card shapes & novelty frames — *in discussion*
-- [ ] Additional instant/print sizes (list TBD)
-- [ ] Novelty: film strip, postage stamp, ticket stub (+ others TBD)
+### Card shapes (all approved, mm)
+- [ ] Instant: Mini 54×86 (have), Square 72×86, Wide 108×86, Classic 88×107
+- [ ] Prints: Wallet 64×89, Photo strip 51×152 (3–4 photos), Passport 35×45
+- [ ] Novelty: Film strip (35 mm negative, sprockets, frame numbers), Postage stamp (perforated), Ticket stub (admit-one, uses date/location)
+- [ ] Extras: Postcard 148×105, Bookmark 50×150, Trading card 63×88, Slide mount 50×50, Contact sheet (full page)
 
 ### Sheets & projects
-- [ ] Mixed-size sheets: different card shapes auto-packed on one A4
+- [ ] Mixed-size sheets: different card shapes auto-packed on one A4 in straight rows (guillotine-friendly cuts)
 - [ ] Saved drafts (projects survive app restarts)
 - [ ] Drag to reorder
 
