@@ -44,7 +44,7 @@ Turn phone photos into printable instant-film style cards, laid out on an A4 she
 
 ## Next build
 
-Nothing queued. Add the next batch here.
+- **Play Store build** (see `docs/PLAY-STORE.md`): `site` / `play` product flavors; `play` has no updater, no `REQUEST_INSTALL_PACKAGES`, no `INTERNET`; targetSdk 36; CI also builds `bundlePlayRelease` AAB as an artifact; manual pepk workflow for exporting the existing key to Play App Signing. Not started — waiting for owner's "build".
 
 ## Later (ideas, unprioritised)
 - Paper sizes: Letter, A3, 4×6 (A4 only for now)
